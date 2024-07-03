@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-resty/resty/v2"
 	"github.com/mdp/qrterminal/v3"
+	"golang.design/x/clipboard"
 	"os"
 	"strconv"
 	"time"
@@ -95,7 +96,7 @@ func checkQrScan(client *resty.Client, key string) {
 			continue
 		}
 		if cr.Code == 803 {
-			fmt.Println(cr.Cookie)
+			clipboard.Write(clipboard.FmtText, []byte(cr.Cookie))
 			break
 		}
 	}
