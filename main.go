@@ -1,4 +1,3 @@
-//go:generate goversioninfo
 package main
 
 import (
@@ -42,6 +41,8 @@ func main() {
 	getQRRes(client, key)
 	checkQrScan(client, key)
 
+	os.Exit(0)
+
 }
 
 func NewClient() *resty.Client {
@@ -55,9 +56,12 @@ func NewClient() *resty.Client {
 
 func getKeyGeneRes(client *resty.Client) string {
 	kr := &KeyGeneRes{}
-	client.R().SetResult(kr).SetQueryParams(map[string]string{
+	_, err := client.R().SetResult(kr).SetQueryParams(map[string]string{
 		"t": unixTime(),
 	}).Get("/login/qr/key")
+	if err != nil {
+		return ""
+	}
 	fmt.Println(kr.Data.Unikey)
 	return kr.Data.Unikey
 }
@@ -71,10 +75,13 @@ func getQRRes(client *resty.Client, key string) *QRRes {
 		WhiteChar: qrterminal.WHITE,
 		QuietZone: 1,
 	}
-	client.R().SetResult(qr).SetQueryParams(map[string]string{
+	_, err := client.R().SetResult(qr).SetQueryParams(map[string]string{
 		"key": key,
 		"t":   unixTime(),
 	}).Get("/login/qr/create")
+	if err != nil {
+		return nil
+	}
 	qrterminal.GenerateWithConfig(qr.Data.Qrurl, config)
 	return qr
 }
@@ -86,17 +93,17 @@ func checkQrScan(client *resty.Client, key string) {
 			"key": key,
 			"t":   unixTime(),
 		}).Get("/login/qr/check")
-		if err != nil {
+		switch {
+		case err != nil:
 			fmt.Println("Error occurred while accessing /login/qr/check: ", err)
 			time.Sleep(5 * time.Second)
 			continue
-		}
-		if cr.Code == 802 {
+		case cr.Code == 802:
 			fmt.Println("已扫描，请确认")
 			continue
-		}
-		if cr.Code == 803 {
-			clipboard.Write(clipboard.FmtText, []byte(cr.Cookie))
+		case cr.Code == 803:
+			WriteToClipboard([]byte(cr.Cookie))
+			fmt.Println("已确认，Cookie已复制到剪贴板")
 			break
 		}
 	}
@@ -104,4 +111,8 @@ func checkQrScan(client *resty.Client, key string) {
 
 func unixTime() string {
 	return strconv.FormatInt(time.Now().Unix(), 10)
+}
+
+func WriteToClipboard(cookie []byte) {
+	clipboard.Write(clipboard.FmtText, cookie)
 }
