@@ -88,24 +88,28 @@ func getQRRes(client *resty.Client, key string) *QRRes {
 
 func checkQrScan(client *resty.Client, key string) {
 	cr := &CookieRes{}
-	for range time.Tick(1 * time.Second) {
+	for {
 		_, err := client.R().SetResult(cr).SetQueryParams(map[string]string{
 			"key": key,
 			"t":   unixTime(),
 		}).Get("/login/qr/check")
-		switch {
-		case err != nil:
+		if err != nil {
 			fmt.Println("Error occurred while accessing /login/qr/check: ", err)
 			time.Sleep(5 * time.Second)
-			continue
-		case cr.Code == 802:
-			fmt.Println("已扫描，请确认")
-			continue
-		case cr.Code == 803:
-			WriteToClipboard([]byte(cr.Cookie))
-			fmt.Println("已确认，Cookie已复制到剪贴板")
 			break
 		}
+
+		switch cr.Code {
+		case 802:
+			fmt.Println("已扫描，请确认")
+		case 803:
+			WriteToClipboard([]byte(cr.Cookie))
+			fmt.Println("已确认，Cookie已复制到剪贴板")
+			return
+		}
+
+		time.Sleep(1 * time.Second)
+
 	}
 }
 
