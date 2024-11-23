@@ -29,6 +29,9 @@ type CookieRes struct {
 	Message string `json:"message"`
 	Cookie  string `json:"cookie"`
 }
+type NeteaseClient struct {
+	client *resty.Client
+}
 
 const (
 	Endpoint = "https://ncm.supaku.cn"
@@ -36,10 +39,11 @@ const (
 
 func main() {
 	client := NewClient()
+	nc := &NeteaseClient{client: client}
 
-	key := getKeyGeneRes(client)
-	getQRRes(client, key)
-	checkQrScan(client, key)
+	key := nc.getKeyGeneRes()
+	nc.getQRRes(key)
+	nc.checkQrScan(key)
 
 	os.Exit(0)
 
@@ -54,9 +58,9 @@ func NewClient() *resty.Client {
 	return client
 }
 
-func getKeyGeneRes(client *resty.Client) string {
+func (c *NeteaseClient) getKeyGeneRes() string {
 	kr := &KeyGeneRes{}
-	_, err := client.R().SetResult(kr).SetQueryParams(map[string]string{
+	_, err := c.client.R().SetResult(kr).SetQueryParams(map[string]string{
 		"t": unixTime(),
 	}).Get("/login/qr/key")
 	if err != nil {
@@ -66,7 +70,7 @@ func getKeyGeneRes(client *resty.Client) string {
 	return kr.Data.Unikey
 }
 
-func getQRRes(client *resty.Client, key string) *QRRes {
+func (c *NeteaseClient) getQRRes(key string) *QRRes {
 	qr := &QRRes{}
 	config := qrterminal.Config{
 		Level:     qrterminal.M,
@@ -75,7 +79,7 @@ func getQRRes(client *resty.Client, key string) *QRRes {
 		WhiteChar: qrterminal.WHITE,
 		QuietZone: 1,
 	}
-	_, err := client.R().SetResult(qr).SetQueryParams(map[string]string{
+	_, err := c.client.R().SetResult(qr).SetQueryParams(map[string]string{
 		"key": key,
 		"t":   unixTime(),
 	}).Get("/login/qr/create")
@@ -86,10 +90,10 @@ func getQRRes(client *resty.Client, key string) *QRRes {
 	return qr
 }
 
-func checkQrScan(client *resty.Client, key string) {
+func (c *NeteaseClient) checkQrScan(key string) {
 	cr := &CookieRes{}
 	for {
-		_, err := client.R().SetResult(cr).SetQueryParams(map[string]string{
+		_, err := c.client.R().SetResult(cr).SetQueryParams(map[string]string{
 			"key": key,
 			"t":   unixTime(),
 		}).Get("/login/qr/check")
